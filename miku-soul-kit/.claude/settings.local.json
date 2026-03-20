@@ -1,0 +1,9 @@
+﻿{
+  "permissions": {
+    "allow": [
+      "Bash(gh:*)", "Bash(git:*)", "Bash(bun:*)", "Bash(mkdir:*)", "Bash(ln:*)",
+      "Bash(rg:*)", "Bash(date:*)", "Bash(ls:*)", "Skill(learn)", "Skill(trace)",
+      "Skill(awaken)", "Skill(rrr)", "Skill(recap)", "Skill(project)"
+    ]
+  }
+}
