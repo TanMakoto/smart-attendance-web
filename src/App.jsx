@@ -124,8 +124,8 @@ export default function App() {
       formData.append("user_id", userToVerify.id);
       formData.append("file", blob, "snapshot.jpg");
 
-      // 3. Send to API dynamically using the host IP
-      const API_URL = `http://${window.location.hostname}:8000/api/verify_face`;
+      // 3. Send to API dynamically using the host IP or Vercel Environment Variable
+      const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api/verify_face`;
       const response = await fetch(API_URL, {
         method: "POST",
         body: formData
