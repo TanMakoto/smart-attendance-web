@@ -2,8 +2,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Camera, QrCode, ShieldCheck, CheckCircle2, XCircle, Activity, User, Fingerprint, Loader2, Scan, ClipboardList, Clock, Users, ChevronDown, ChevronUp, Database, AlertCircle, RefreshCw } from 'lucide-react';
 import jsQR from 'jsqr';
 
-// --- Tunwak's Attendance Backend API ---
-const ATTENDANCE_API = import.meta.env.VITE_ATTENDANCE_API_URL || `http://${window.location.hostname}:3000`;
+// --- API Configuration ---
+// Uses environment variables when deployed to Vercel/cloud.
+// Falls back to localhost for local development.
+const ATTENDANCE_API = import.meta.env.VITE_ATTENDANCE_API_URL || 'http://localhost:3000';
+const FACE_API_URL   = import.meta.env.VITE_API_URL            || 'http://localhost:8000/api/verify_face';
+
 
 // --- Static User Database (Mocked for QR Scan) ---
 const USER_DATABASE = [
@@ -210,8 +214,7 @@ export default function App() {
       formData.append("user_id", userToVerify.id);
       formData.append("file", blob, "snapshot.jpg");
 
-      const API_URL = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api/verify_face`;
-      const response = await fetch(API_URL, {
+      const response = await fetch(FACE_API_URL, {
         method: "POST",
         body: formData
       });
