@@ -1110,27 +1110,29 @@ export default function App() {
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm table-fixed">
                     <thead>
                       <tr className="border-b border-emerald-100 bg-emerald-50/50 text-slate-600">
-                        <th className="px-4 py-3 text-left font-semibold text-xs">รหัส</th>
-                        <th className="px-4 py-3 text-left font-semibold text-xs">ชื่อ</th>
-                        <th className="px-4 py-3 text-left font-semibold text-xs">วันที่</th>
-                        <th className="px-4 py-3 text-left font-semibold text-xs">เวลา</th>
-                        <th className="px-4 py-3 text-left font-semibold text-xs">สถานะ</th>
+                        <th className="w-[18%] px-4 py-3 text-left font-semibold text-xs">รหัส</th>
+                        <th className="w-[32%] px-4 py-3 text-left font-semibold text-xs">ชื่อ</th>
+                        <th className="w-[18%] px-4 py-3 text-left font-semibold text-xs">วันที่</th>
+                        <th className="w-[18%] px-4 py-3 text-left font-semibold text-xs">เวลา</th>
+                        <th className="w-[14%] px-4 py-3 text-center font-semibold text-xs">สถานะ</th>
                       </tr>
                     </thead>
                     <tbody>
                       {reportData.map((row, i) => (
                         <tr key={row._id || `${row.user_id}-${row.attend_date}-${row.time}-${i}`} className="border-b border-emerald-50 hover:bg-emerald-50/40 transition-colors">
-                          <td className="px-4 py-3 font-mono text-xs text-slate-700 font-medium">{row.user_id}</td>
-                          <td className="px-4 py-3 text-slate-900 font-semibold">{row.full_name || '—'}</td>
-                          <td className="px-4 py-3 text-slate-500 text-xs">{row.attend_date || '—'}</td>
-                          <td className="px-4 py-3 text-slate-500 text-xs flex items-center gap-1">
-                            <Clock size={12} className="text-emerald-500" />
-                            {row.time || '—'}
+                          <td className="px-4 py-3 font-mono text-xs text-slate-700 font-medium truncate" title={row.user_id}>{row.user_id}</td>
+                          <td className="px-4 py-3 text-slate-900 font-semibold truncate" title={row.full_name}>{row.full_name || '—'}</td>
+                          <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{row.attend_date || '—'}</td>
+                          <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock size={12} className="text-emerald-500 shrink-0" />
+                              {row.time || '—'}
+                            </span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
                             <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${row.status === 'ตรงเวลา' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                                 row.status === 'สาย' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
                                   'bg-rose-100 text-rose-800 border border-rose-200'
