@@ -315,7 +315,10 @@ export default function App() {
           const checkinRes = await fetch(`${ATTENDANCE_API}/api/checkin`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userToVerify.id })
+            body: JSON.stringify({ 
+              user_id: userToVerify.id,
+              full_name: userToVerify.name
+            })
           });
           const checkinData = await checkinRes.json();
           setCheckinMessage(checkinData.message || 'บันทึกเวลาเรียนแล้ว');
@@ -502,7 +505,16 @@ export default function App() {
     try {
       const res = await fetch(`${ATTENDANCE_API}/api/report`);
       const data = await res.json();
-      setReportData(Array.isArray(data) ? data : []);
+      const rawArray = Array.isArray(data) ? data : [];
+      const mapped = rawArray.map(row => {
+        const found = USER_DATABASE.find(u => u.id === String(row.user_id).trim());
+        const hasRealName = row.full_name && row.full_name !== row.user_id;
+        return {
+          ...row,
+          full_name: hasRealName ? row.full_name : (found ? found.name : row.full_name || row.user_id)
+        };
+      });
+      setReportData(mapped);
     } catch (err) {
       console.error('Failed to fetch report:', err);
       setReportData([]);
