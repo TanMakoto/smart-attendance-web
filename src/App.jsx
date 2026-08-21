@@ -322,6 +322,7 @@ export default function App() {
           });
           const checkinData = await checkinRes.json();
           setCheckinMessage(checkinData.message || 'บันทึกเวลาเรียนแล้ว');
+          fetchReport();
         } catch (checkinErr) {
           console.warn('Attendance checkin failed:', checkinErr?.message || checkinErr);
           setCheckinMessage('⚠️ บันทึกใน MongoDB ไม่สำเร็จ');
