@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../gait_face_auth-main"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "smart-attendance-main"
+	}
+}
