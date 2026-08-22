@@ -84,31 +84,13 @@
 
 ### Vercel: Dynamic QR อายุ 1 นาที
 
-ตั้ง Environment Variables ต่อไปนี้ใน Vercel แล้ว Redeploy:
+Smart Attendance ใช้ตัวสร้างและตรวจ QR จาก `ScanQr_eiei` โดยตั้งค่า:
 
 ```env
-QR_SECRET=<ค่าสุ่มอย่างน้อย 32 ตัวอักษร>
-QR_ADMIN_KEY=<ค่าสุ่มอย่างน้อย 24 ตัวอักษร>
+VITE_QR_API_URL=https://scan-qr-eiei.vercel.app
 ```
 
-สร้าง token จากระบบผู้ดูแลด้วย `POST /api/generate_qr`:
-
-```bash
-curl -X POST https://YOUR_VERCEL_DOMAIN/api/generate_qr \
-  -H "Content-Type: application/json" \
-  -H "x-qr-admin-key: YOUR_QR_ADMIN_KEY" \
-  -d '{"student_id":"6612247018"}'
-```
-
-นำค่า `token` จากผลลัพธ์ไปสร้างเป็นภาพ QR ระบบสแกนจะตรวจลายเซ็นและหมดอายุภายใน 60 วินาที โดยไม่พึ่งข้อมูลใน memory ของ Vercel instance
-
-หรือเปิดหน้าสร้าง QR ที่มากับระบบได้ที่:
-
-```text
-https://YOUR_VERCEL_DOMAIN/qr-generator.html
-```
-
-กรอกรหัสนักศึกษาและค่า `QR_ADMIN_KEY` หน้าเว็บจะสร้าง QR ใหม่ให้อัตโนมัติทุก 60 วินาที
+ส่วนโปรเจกต์ `ScanQr_eiei` ต้องตั้ง `QR_SECRET` เป็นค่าสุ่มอย่างน้อย 32 ตัวอักษรใน Vercel แล้ว Redeploy ทั้งสองโปรเจกต์
 
 ---
 

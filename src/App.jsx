@@ -18,7 +18,7 @@ const ENROLL_API_URL = import.meta.env.VITE_API_URL_ENROLL || FACE_API_URL.repla
 const CCTV_API_URL = import.meta.env.VITE_CCTV_API_URL || (IS_PRODUCTION ? '' : 'http://localhost:8001');
 // Production uses the stateless Vercel functions in /api. Local development
 // remains compatible with the existing Flask QR service on port 5000.
-const QR_API_URL = (import.meta.env.VITE_QR_API_URL || (IS_PRODUCTION ? '/api' : 'http://localhost:5000')).replace(/\/+$/, '');
+const QR_API_URL = (import.meta.env.VITE_QR_API_URL || (IS_PRODUCTION ? 'https://scan-qr-eiei.vercel.app' : 'http://localhost:5000')).replace(/\/+$/, '');
 
 // --- Static User Database (Mocked for QR Scan) ---
 const USER_DATABASE = [
