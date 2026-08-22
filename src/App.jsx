@@ -10,10 +10,18 @@ import jsQR from 'jsqr';
 const ATTENDANCE_API = (import.meta.env.VITE_ATTENDANCE_API_URL || 'https://psru-attendance-db.onrender.com').replace(/\/+$/, '');
 // Set these in Vercel so each service can use its own public URL (for example, ngrok).
 // VITE_API_URL remains supported for deployments that already use the old name.
-const FACE_API_URL = import.meta.env.VITE_FACE_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/verify_face';
+// Helper to get dynamic host based on browser address (e.g. 192.168.1.176 or localhost)
+const getDynamicHost = (port) => {
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    return 'http://' + window.location.hostname + ':' + port;
+  }
+  return 'http://localhost:' + port;
+};
+
+const FACE_API_URL = import.meta.env.VITE_FACE_API_URL || import.meta.env.VITE_API_URL || (getDynamicHost(8000) + '/api/verify_face');
 const ENROLL_API_URL = import.meta.env.VITE_API_URL_ENROLL || FACE_API_URL.replace('/verify_face', '/enroll');
-const CCTV_API_URL = import.meta.env.VITE_CCTV_API_URL || 'http://localhost:8001';
-const QR_API_URL = (import.meta.env.VITE_QR_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const CCTV_API_URL = import.meta.env.VITE_CCTV_API_URL || getDynamicHost(8001);
+const QR_API_URL = (import.meta.env.VITE_QR_API_URL || getDynamicHost(5000)).replace(/\/+$/, '');
 
 // --- Static User Database (Mocked for QR Scan) ---
 const USER_DATABASE = [
