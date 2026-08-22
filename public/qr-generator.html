@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance QR Generator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f0fdf4; color: #17352b; font-family: system-ui, sans-serif; }
+    main { width: min(92vw, 430px); padding: 28px; text-align: center; background: white; border: 1px solid #bbf7d0; border-radius: 24px; box-shadow: 0 18px 50px #14532d1a; }
+    h1 { margin: 0 0 6px; font-size: 24px; color: #047857; }
+    .sub { margin: 0 0 24px; color: #64748b; font-size: 14px; }
+    label { display: block; margin: 12px 0 6px; text-align: left; font-size: 13px; font-weight: 700; }
+    input { width: 100%; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 12px; font-size: 16px; }
+    button { width: 100%; margin-top: 16px; padding: 12px; border: 0; border-radius: 12px; background: #059669; color: white; font-size: 16px; font-weight: 800; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: wait; }
+    #qrBox { display: none; margin-top: 22px; }
+    #qrImage { width: 280px; max-width: 100%; aspect-ratio: 1; padding: 10px; background: white; border: 2px solid #10b981; border-radius: 18px; }
+    #timer { margin-top: 10px; font-weight: 800; color: #e11d48; }
+    #status { min-height: 22px; margin-top: 12px; font-size: 14px; color: #475569; }
+    .hint { margin-top: 16px; color: #64748b; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Attendance QR Code</h1>
+    <p class="sub">QR ปลอดภัย เปลี่ยนอัตโนมัติทุก 60 วินาที</p>
+
+    <label for="studentId">รหัสนักศึกษา</label>
+    <input id="studentId" autocomplete="off" inputmode="numeric" placeholder="เช่น 6612247018" />
+
+    <label for="adminKey">QR Admin Key</label>
+    <input id="adminKey" type="password" autocomplete="off" placeholder="ค่าจาก Vercel QR_ADMIN_KEY" />
+
+    <button id="generateButton" type="button">สร้าง QR Code</button>
+
+    <section id="qrBox">
+      <img id="qrImage" alt="QR Code สำหรับเช็คชื่อ" />
+      <div id="timer">เหลือเวลา 60 วินาที</div>
+    </section>
+    <div id="status"></div>
+    <p class="hint">Admin Key เก็บเฉพาะใน session ของแท็บนี้และจะหายเมื่อปิดแท็บ</p>
+  </main>
+
+  <script>
+    const studentIdInput = document.querySelector('#studentId');
+    const adminKeyInput = document.querySelector('#adminKey');
+    const button = document.querySelector('#generateButton');
+    const qrBox = document.querySelector('#qrBox');
+    const qrImage = document.querySelector('#qrImage');
+    const timer = document.querySelector('#timer');
+    const status = document.querySelector('#status');
+    let remaining = 0;
+    let intervalId;
+
+    adminKeyInput.value = sessionStorage.getItem('qrAdminKey') || '';
+    studentIdInput.value = sessionStorage.getItem('qrStudentId') || '';
+
+    async function generateQr() {
+      const studentId = studentIdInput.value.trim();
+      const adminKey = adminKeyInput.value.trim();
+      if (!studentId || !adminKey) {
+        status.textContent = 'กรุณากรอกรหัสนักศึกษาและ QR Admin Key';
+        return;
+      }
+
+      button.disabled = true;
+      status.textContent = 'กำลังสร้าง QR...';
+      try {
+        const response = await fetch('/api/generate_qr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-qr-admin-key': adminKey },
+          body: JSON.stringify({ student_id: studentId })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.token) throw new Error(data.message || `API Error ${response.status}`);
+
+        sessionStorage.setItem('qrAdminKey', adminKey);
+        sessionStorage.setItem('qrStudentId', studentId);
+        qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=12&data=${encodeURIComponent(data.token)}`;
+        qrBox.style.display = 'block';
+        remaining = Number(data.expires_in) || 60;
+        timer.textContent = `เหลือเวลา ${remaining} วินาที`;
+        status.textContent = 'พร้อมสแกน';
+
+        clearInterval(intervalId);
+        intervalId = setInterval(() => {
+          remaining -= 1;
+          timer.textContent = `เหลือเวลา ${Math.max(remaining, 0)} วินาที`;
+          if (remaining <= 0) {
+            clearInterval(intervalId);
+            generateQr();
+          }
+        }, 1000);
+      } catch (error) {
+        qrBox.style.display = 'none';
+        status.textContent = `สร้าง QR ไม่สำเร็จ: ${error.message}`;
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    button.addEventListener('click', generateQr);
+    adminKeyInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') generateQr(); });
+  </script>
+</body>
+</html>

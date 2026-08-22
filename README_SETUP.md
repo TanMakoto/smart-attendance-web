@@ -102,6 +102,14 @@ curl -X POST https://YOUR_VERCEL_DOMAIN/api/generate_qr \
 
 นำค่า `token` จากผลลัพธ์ไปสร้างเป็นภาพ QR ระบบสแกนจะตรวจลายเซ็นและหมดอายุภายใน 60 วินาที โดยไม่พึ่งข้อมูลใน memory ของ Vercel instance
 
+หรือเปิดหน้าสร้าง QR ที่มากับระบบได้ที่:
+
+```text
+https://YOUR_VERCEL_DOMAIN/qr-generator.html
+```
+
+กรอกรหัสนักศึกษาและค่า `QR_ADMIN_KEY` หน้าเว็บจะสร้าง QR ใหม่ให้อัตโนมัติทุก 60 วินาที
+
 ---
 
 ## 🚀 4. ขั้นตอนการเปิดใช้งาน (Run Project)
