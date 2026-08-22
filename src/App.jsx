@@ -13,6 +13,7 @@ const ATTENDANCE_API = (import.meta.env.VITE_ATTENDANCE_API_URL || 'https://psru
 const FACE_API_URL = import.meta.env.VITE_FACE_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/verify_face';
 const ENROLL_API_URL = import.meta.env.VITE_API_URL_ENROLL || FACE_API_URL.replace('/verify_face', '/enroll');
 const CCTV_API_URL = import.meta.env.VITE_CCTV_API_URL || 'http://localhost:8001';
+const QR_API_URL = (import.meta.env.VITE_QR_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
 
 // --- Static User Database (Mocked for QR Scan) ---
 const USER_DATABASE = [
@@ -386,31 +387,58 @@ export default function App() {
 
             lastScannedCodeRef.current = { code: decodedText, time: now };
 
-            // QR contents are untrusted. Only accept an ID that already belongs
-            // to a user in the attendance database; never build a user from QR data.
-            const foundUser = USER_DATABASE.find(u => u.id === decodedText);
-            if (!foundUser) {
+            const handleSuccessUser = (user) => {
+              setCurrentUser(user);
+              setStatus('QR_SCANNED');
+              active = false;
+              clearTimers();
+              timerRef.current = setTimeout(() => {
+                setStatus('FACE_SCAN');
+                subTimerRef.current = setTimeout(() => {
+                  setStatus('VERIFYING');
+                  performCapture(user);
+                }, 1000);
+              }, 2000);
+            };
+
+            const handleErrorUser = () => {
               active = false;
               clearTimers();
               setCurrentUser(null);
               setErrorMessage('QR นี้ไม่ใช่รหัสสำหรับเช็คชื่อ หรือไม่พบผู้ใช้งานในระบบ');
               setStatus('ERROR');
               resetToQrScan(2500);
+            };
+
+            // 1. Static Student ID check
+            const foundUser = USER_DATABASE.find(u => u.id === decodedText);
+            if (foundUser) {
+              handleSuccessUser(foundUser);
               return;
             }
 
-            setCurrentUser(foundUser);
-            setStatus('QR_SCANNED');
+            // 2. Resolve Dynamic QR Token via Flask/ngrok server
             active = false;
+            fetch(`${QR_API_URL}/resolve_qr?token=${encodeURIComponent(decodedText)}`, {
+              headers: { 'ngrok-skip-browser-warning': 'true' }
+            })
+              .then(res => res.ok ? res.json() : null)
+              .then(data => {
+                if (data && data.status === 'success' && data.student_id) {
+                  const resolvedId = data.student_id;
+                  const matchedUser = USER_DATABASE.find(u => u.id === resolvedId) || {
+                    id: resolvedId,
+                    name: `นักศึกษา ${resolvedId}`,
+                    role: 'นักศึกษา',
+                    dept: 'วิศวกรรมคอมพิวเตอร์'
+                  };
+                  handleSuccessUser(matchedUser);
+                } else {
+                  handleErrorUser();
+                }
+              })
+              .catch(() => handleErrorUser());
 
-            clearTimers();
-            timerRef.current = setTimeout(() => {
-              setStatus('FACE_SCAN');
-              subTimerRef.current = setTimeout(() => {
-                setStatus('VERIFYING');
-                performCapture(foundUser);
-              }, 1000);
-            }, 2000);
             return;
           }
         }
