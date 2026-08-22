@@ -82,6 +82,26 @@
    # VITE_API_URL=https://titan-auth-api.onrender.com/api/verify_face
    ```
 
+### Vercel: Dynamic QR อายุ 1 นาที
+
+ตั้ง Environment Variables ต่อไปนี้ใน Vercel แล้ว Redeploy:
+
+```env
+QR_SECRET=<ค่าสุ่มอย่างน้อย 32 ตัวอักษร>
+QR_ADMIN_KEY=<ค่าสุ่มอย่างน้อย 24 ตัวอักษร>
+```
+
+สร้าง token จากระบบผู้ดูแลด้วย `POST /api/generate_qr`:
+
+```bash
+curl -X POST https://YOUR_VERCEL_DOMAIN/api/generate_qr \
+  -H "Content-Type: application/json" \
+  -H "x-qr-admin-key: YOUR_QR_ADMIN_KEY" \
+  -d '{"student_id":"6612247018"}'
+```
+
+นำค่า `token` จากผลลัพธ์ไปสร้างเป็นภาพ QR ระบบสแกนจะตรวจลายเซ็นและหมดอายุภายใน 60 วินาที โดยไม่พึ่งข้อมูลใน memory ของ Vercel instance
+
 ---
 
 ## 🚀 4. ขั้นตอนการเปิดใช้งาน (Run Project)

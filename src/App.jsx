@@ -10,10 +10,15 @@ import jsQR from 'jsqr';
 const ATTENDANCE_API = (import.meta.env.VITE_ATTENDANCE_API_URL || 'https://psru-attendance-db.onrender.com').replace(/\/+$/, '');
 // Set these in Vercel so each service can use its own public URL (for example, ngrok).
 // VITE_API_URL remains supported for deployments that already use the old name.
-const FACE_API_URL = import.meta.env.VITE_FACE_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api/verify_face';
+const IS_PRODUCTION = import.meta.env.PROD;
+const FACE_API_URL = import.meta.env.VITE_FACE_API_URL || import.meta.env.VITE_API_URL || (IS_PRODUCTION
+  ? 'https://titan-auth-api.onrender.com/api/verify_face'
+  : 'http://localhost:8000/api/verify_face');
 const ENROLL_API_URL = import.meta.env.VITE_API_URL_ENROLL || FACE_API_URL.replace('/verify_face', '/enroll');
-const CCTV_API_URL = import.meta.env.VITE_CCTV_API_URL || 'http://localhost:8001';
-const QR_API_URL = (import.meta.env.VITE_QR_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const CCTV_API_URL = import.meta.env.VITE_CCTV_API_URL || (IS_PRODUCTION ? '' : 'http://localhost:8001');
+// Production uses the stateless Vercel functions in /api. Local development
+// remains compatible with the existing Flask QR service on port 5000.
+const QR_API_URL = (import.meta.env.VITE_QR_API_URL || (IS_PRODUCTION ? '/api' : 'http://localhost:5000')).replace(/\/+$/, '');
 
 // --- Static User Database (Mocked for QR Scan) ---
 const USER_DATABASE = [
@@ -292,6 +297,10 @@ export default function App() {
       const formData = new FormData();
       formData.append("user_id", userIdStr);
       formData.append("file", blob, "snapshot.jpg");
+
+      if (!FACE_API_URL) {
+        throw new Error('ยังไม่ได้ตั้ง VITE_FACE_API_URL ใน Vercel Environment Variables');
+      }
 
       const response = await fetch(FACE_API_URL, {
         method: "POST",
