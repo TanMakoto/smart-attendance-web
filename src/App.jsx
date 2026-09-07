@@ -37,6 +37,7 @@ export default function App() {
 
   // --- Core State Machine for Attendance ---
   const [status, setStatus] = useState('QR_SCAN');
+  const [enrollmentMode, setEnrollmentMode] = useState(false);
   const [scanCooldown, setScanCooldown] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -81,6 +82,7 @@ export default function App() {
     clearTimers();
     timerRef.current = setTimeout(() => {
       setStatus('QR_SCAN');
+      setEnrollmentMode(false);
       setScanCooldown(true);
       setCurrentUser(null);
       setErrorMessage('');
@@ -362,6 +364,7 @@ export default function App() {
     if (status !== 'QR_SCAN' || scanCooldown) return;
 
     let active = true;
+    let disposed = false;
     let frameId = null;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -397,7 +400,14 @@ export default function App() {
             lastScannedCodeRef.current = { code: decodedText, time: now };
 
             const handleSuccessUser = (user) => {
+              if (disposed) return;
               setCurrentUser(user);
+              if (enrollmentMode) {
+                active = false;
+                clearTimers();
+                setStatus('ENROLL_READY');
+                return;
+              }
               setStatus('QR_SCANNED');
               active = false;
               clearTimers();
@@ -411,6 +421,7 @@ export default function App() {
             };
 
             const handleErrorUser = () => {
+              if (disposed) return;
               active = false;
               clearTimers();
               setCurrentUser(null);
@@ -458,14 +469,16 @@ export default function App() {
     frameId = requestAnimationFrame(scanQrLoop);
 
     return () => {
+      disposed = true;
       active = false;
       if (frameId) cancelAnimationFrame(frameId);
     };
-  }, [appMode, status, scanCooldown, resetToQrScan, clearTimers, performCapture]);
+  }, [appMode, status, scanCooldown, resetToQrScan, clearTimers, performCapture, enrollmentMode]);
 
   const enrollFace = async () => {
     if (!videoRef.current || !currentUser) return;
     clearTimers();
+    setEnrollmentMode(true);
     setStatus('VERIFYING');
 
     try {
@@ -497,6 +510,7 @@ export default function App() {
 
       const response = await fetch(ENROLL_API_URL, {
         method: "POST",
+        headers: { 'ngrok-skip-browser-warning': 'true' },
         body: formData
       });
 
@@ -513,16 +527,6 @@ export default function App() {
       if (data.success) {
         setStatus('SUCCESS');
         setCheckinMessage("ลงทะเบียนใบหน้าสำเร็จ! ระบบกำลังกลับหน้าหลัก...");
-
-        try {
-          await fetch(`${ATTENDANCE_API}/api/checkin`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: currentUser.id })
-          });
-        } catch {
-          // Ignore background checkin error
-        }
 
         resetToQrScan(3000);
       } else {
@@ -581,6 +585,12 @@ export default function App() {
   };
 
   const renderTitle = () => {
+    if (enrollmentMode) {
+      if (status === 'QR_SCAN') return 'ลงทะเบียนใบหน้า: สแกน QR';
+      if (status === 'ENROLL_READY') return 'พร้อมลงทะเบียนใบหน้า';
+      if (status === 'VERIFYING') return 'กำลังลงทะเบียนใบหน้า...';
+      if (status === 'SUCCESS') return 'ลงทะเบียนสำเร็จ';
+    }
     switch (status) {
       case 'IDLE': return "Ready to Scan QR";
       case 'QR_SCAN': return "Scanning QR Code...";
@@ -594,6 +604,8 @@ export default function App() {
   };
 
   const renderDescription = () => {
+    if (enrollmentMode && status === 'VERIFYING') return 'กำลังบันทึกข้อมูลใบหน้า กรุณารอสักครู่';
+    if (status === 'ENROLL_READY') return `รหัส ${currentUser?.id} — ${currentUser?.name} กรุณามองกล้องให้เห็นใบหน้าชัดเจน แล้วกดถ่ายภาพ`;
     switch (status) {
       case 'IDLE': return "กรุณากดปุ่ม 'สแกน QR Code' ด้านล่างเพื่อเริ่มขั้นตอนเช็คอิน";
       case 'QR_SCAN': return "กรุณานำ QR Code ของคุณแสดงต่อหน้ากล้อง";
@@ -747,6 +759,23 @@ export default function App() {
 
             {/* Kiosk Mode Status Indicator */}
             <div className="mt-5 flex flex-col items-center gap-2 text-center">
+              {!enrollmentMode && status === 'QR_SCAN' && (
+                <button
+                  onClick={() => {
+                    clearTimers();
+                    setEnrollmentMode(true);
+                    setScanCooldown(false);
+                    setErrorMessage('');
+                    lastScannedCodeRef.current = { code: '', time: 0 };
+                  }}
+                  className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2 shadow-sm"
+                >
+                  <PlusCircle size={18} /> ลงทะเบียนใบหน้า
+                </button>
+              )}
+              {enrollmentMode && (
+                <p className="text-sm text-emerald-700 font-semibold">สแกน QR ของตนเอง → ถ่ายภาพใบหน้า → บันทึกข้อมูล</p>
+              )}
               <div className="px-5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-bold tracking-wide flex items-center justify-center gap-2.5 shadow-sm">
                 <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block animate-ping"></span>
                 ระบบเช็คอินอัตโนมัติ (Hands-Free Kiosk)
@@ -754,7 +783,7 @@ export default function App() {
               <p className="text-[11px] text-slate-500 font-medium max-w-sm">
                 หัน QR Code หน้ากล้องเพื่อเริ่มสแกน ระบบจะหน่วงเวลาสแกนหน้าและเช็คอินอัตโนมัติ
               </p>
-              {status !== 'QR_SCAN' && (
+              {(status !== 'QR_SCAN' || enrollmentMode) && status !== 'VERIFYING' && (
                 <button
                   onClick={() => resetToQrScan(0)}
                   className="mt-1 px-3 py-1.5 bg-white hover:bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
@@ -785,6 +814,15 @@ export default function App() {
               </h2>
 
               <div className="z-10 w-full flex justify-center">
+                {status === 'ENROLL_READY' && (
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-sm text-slate-600">{renderDescription()}</p>
+                    <p className="text-xs text-slate-500">การบันทึกจะอัปเดตใบหน้าของรหัสนี้ และยังไม่บันทึกเวลาเข้าเรียน</p>
+                    <button onClick={enrollFace} className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2">
+                      <Camera size={18} /> ถ่ายภาพและลงทะเบียน
+                    </button>
+                  </div>
+                )}
                 {status === 'ERROR' ? (
                   <div className="bg-rose-50 w-full p-4 rounded-2xl border border-rose-200 mt-2 flex flex-col items-center gap-3 shadow-sm">
                     <p className="text-rose-700 text-xs font-semibold sm:text-sm leading-snug">
@@ -801,11 +839,11 @@ export default function App() {
                         </button>
                       )}
                   </div>
-                ) : (
+                ) : status !== 'ENROLL_READY' ? (
                   <p className="text-slate-500 text-sm max-w-[260px]">
                     {renderDescription()}
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
 
