@@ -343,7 +343,10 @@ export default function App() {
 
         resetToQrScan(2000);
       } else {
-        setErrorMessage(data.message || "ใบหน้าไม่ตรงกับฐานข้อมูล");
+        const missingEnrollment = /not enrolled|not in user_db/i.test(data.message || "");
+        setErrorMessage(missingEnrollment
+          ? `ยังไม่ได้ลงทะเบียนใบหน้าของ ${userToVerify.name || userToVerify.id} กรุณากดลงทะเบียนใบหน้าใหม่`
+          : (data.message || "ใบหน้าไม่ตรงกับฐานข้อมูล"));
         setStatus('ERROR');
         if (data.message && (data.message.includes("not enrolled") || data.message.includes("not in user_db"))) {
           resetToQrScan(8000);
@@ -833,7 +836,7 @@ export default function App() {
                     </p>
                     {currentUser && (errorMessage.toLowerCase().includes("not enrolled") ||
                       errorMessage.toLowerCase().includes("user_db") ||
-                      errorMessage.includes("ไม่พบ")) && (
+                      errorMessage.includes("ไม่พบ") || errorMessage.includes("ยังไม่ได้ลงทะเบียนใบหน้า")) && (
                         <button
                           onClick={enrollFace}
                           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 border border-emerald-500/30 text-white text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-1.5"
