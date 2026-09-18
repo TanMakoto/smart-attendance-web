@@ -171,8 +171,9 @@ export default function App() {
 
       try {
         const canvas = document.createElement('canvas');
-        canvas.width = Math.min(video.videoWidth, 640);
-        canvas.height = Math.min(video.videoHeight, 480);
+        const scale = Math.min(1, 640 / video.videoWidth, 480 / video.videoHeight);
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -215,36 +216,36 @@ export default function App() {
     setCctvEnrollMessage('');
 
     try {
-      const video = cctvVideoRef.current;
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.min(video.videoWidth, 640);
-      canvas.height = Math.min(video.videoHeight, 480);
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
-      if (!blob) throw new Error('Failed to capture snapshot');
-
-      const formData = new FormData();
-      formData.append('name', cctvEnrollName.trim());
-      formData.append('file', blob, 'cctv_enroll.jpg');
-
-      const res = await fetch(`${CCTV_API_URL}/api/cctv/enroll_face`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (res.ok && data.status === 'success') {
-        setCctvEnrollMessage(`✅ บันทึกใบหน้า "${data.name}" สำเร็จ! AI จะจำคุณได้ทันที`);
-        setTimeout(() => {
-          setShowCctvEnrollModal(false);
-          setCctvEnrollName('');
-          setCctvEnrollMessage('');
-        }, 1800);
-      } else {
-        throw new Error(data.message || 'Enrollment failed');
+      let saved = 0;
+      let lastError = '';
+      let data = null;
+      for (let sample = 0; sample < 3; sample++) {
+        setCctvEnrollMessage(`กำลังเก็บภาพ ${sample + 1}/3 กรุณาหันหน้าเล็กน้อยและอยู่นิ่ง`);
+        const video = cctvVideoRef.current;
+        if (!video || video.readyState < 2 || !video.videoWidth) {
+          lastError = 'กล้องยังไม่พร้อม กรุณาลองอีกครั้ง';
+          break;
+        }
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(1, 640 / video.videoWidth, 480 / video.videoHeight);
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        if (!blob) { lastError = 'ถ่ายภาพไม่สำเร็จ'; break; }
+        const formData = new FormData();
+        formData.append('name', cctvEnrollName.trim());
+        formData.append('file', blob, 'cctv_enroll.jpg');
+        try {
+          const res = await fetch(`${CCTV_API_URL}/api/cctv/enroll_face`, { method: 'POST', body: formData });
+          data = await res.json();
+          if (res.ok && data.status === 'success') saved++;
+          else lastError = data.message || 'บันทึกไม่สำเร็จ';
+        } catch (error) { lastError = error.message; break; }
+        if (sample < 2) await new Promise(resolve => setTimeout(resolve, 700));
       }
+      if (!saved) throw new Error(lastError || 'ไม่มีภาพผ่านเกณฑ์ กรุณาลองใหม่');
+      setCctvEnrollMessage(`✅ บันทึก ${saved}/3 ภาพ พร้อมใช้จับคู่แล้ว${saved < 3 ? ` — ${lastError}` : ''}`);
     } catch (err) {
       setCctvEnrollMessage(`❌ เกิดข้อผิดพลาด: ${err.message}`);
     } finally {
