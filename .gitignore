@@ -24,3 +24,8 @@ __pycache__/
 *.njsproj
 *.sln
 *.sw?
+
+# Local biometric runtime data
+Gesture-Recognition-master/known_faces/vgg_profiles.json
+Gesture-Recognition-master/known_faces/samples/
+local-ai/tmp/service-logs/
