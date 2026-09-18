@@ -37,6 +37,7 @@ export default function App() {
 
   // --- Core State Machine for Attendance ---
   const [status, setStatus] = useState('QR_SCAN');
+  const [enrollmentMode, setEnrollmentMode] = useState(false);
   const [scanCooldown, setScanCooldown] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -81,6 +82,7 @@ export default function App() {
     clearTimers();
     timerRef.current = setTimeout(() => {
       setStatus('QR_SCAN');
+      setEnrollmentMode(false);
       setScanCooldown(true);
       setCurrentUser(null);
       setErrorMessage('');
@@ -325,7 +327,7 @@ export default function App() {
           const checkinRes = await fetch(`${ATTENDANCE_API}/api/checkin`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               user_id: userToVerify.id,
               full_name: userToVerify.name
             })
@@ -362,6 +364,7 @@ export default function App() {
     if (status !== 'QR_SCAN' || scanCooldown) return;
 
     let active = true;
+    let disposed = false;
     let frameId = null;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -397,7 +400,14 @@ export default function App() {
             lastScannedCodeRef.current = { code: decodedText, time: now };
 
             const handleSuccessUser = (user) => {
+              if (disposed) return;
               setCurrentUser(user);
+              if (enrollmentMode) {
+                active = false;
+                clearTimers();
+                setStatus('ENROLL_READY');
+                return;
+              }
               setStatus('QR_SCANNED');
               active = false;
               clearTimers();
@@ -411,6 +421,7 @@ export default function App() {
             };
 
             const handleErrorUser = () => {
+              if (disposed) return;
               active = false;
               clearTimers();
               setCurrentUser(null);
@@ -458,14 +469,16 @@ export default function App() {
     frameId = requestAnimationFrame(scanQrLoop);
 
     return () => {
+      disposed = true;
       active = false;
       if (frameId) cancelAnimationFrame(frameId);
     };
-  }, [appMode, status, scanCooldown, resetToQrScan, clearTimers, performCapture]);
+  }, [appMode, status, scanCooldown, resetToQrScan, clearTimers, performCapture, enrollmentMode]);
 
   const enrollFace = async () => {
     if (!videoRef.current || !currentUser) return;
     clearTimers();
+    setEnrollmentMode(true);
     setStatus('VERIFYING');
 
     try {
@@ -497,6 +510,7 @@ export default function App() {
 
       const response = await fetch(ENROLL_API_URL, {
         method: "POST",
+        headers: { 'ngrok-skip-browser-warning': 'true' },
         body: formData
       });
 
@@ -513,16 +527,6 @@ export default function App() {
       if (data.success) {
         setStatus('SUCCESS');
         setCheckinMessage("ลงทะเบียนใบหน้าสำเร็จ! ระบบกำลังกลับหน้าหลัก...");
-
-        try {
-          await fetch(`${ATTENDANCE_API}/api/checkin`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: currentUser.id })
-          });
-        } catch {
-          // Ignore background checkin error
-        }
 
         resetToQrScan(3000);
       } else {
@@ -581,6 +585,12 @@ export default function App() {
   };
 
   const renderTitle = () => {
+    if (enrollmentMode) {
+      if (status === 'QR_SCAN') return 'ลงทะเบียนใบหน้า: สแกน QR';
+      if (status === 'ENROLL_READY') return 'พร้อมลงทะเบียนใบหน้า';
+      if (status === 'VERIFYING') return 'กำลังลงทะเบียนใบหน้า...';
+      if (status === 'SUCCESS') return 'ลงทะเบียนสำเร็จ';
+    }
     switch (status) {
       case 'IDLE': return "Ready to Scan QR";
       case 'QR_SCAN': return "Scanning QR Code...";
@@ -594,6 +604,8 @@ export default function App() {
   };
 
   const renderDescription = () => {
+    if (enrollmentMode && status === 'VERIFYING') return 'กำลังบันทึกข้อมูลใบหน้า กรุณารอสักครู่';
+    if (status === 'ENROLL_READY') return `รหัส ${currentUser?.id} — ${currentUser?.name} กรุณามองกล้องให้เห็นใบหน้าชัดเจน แล้วกดถ่ายภาพ`;
     switch (status) {
       case 'IDLE': return "กรุณากดปุ่ม 'สแกน QR Code' ด้านล่างเพื่อเริ่มขั้นตอนเช็คอิน";
       case 'QR_SCAN': return "กรุณานำ QR Code ของคุณแสดงต่อหน้ากล้อง";
@@ -611,12 +623,12 @@ export default function App() {
 
       {/* Dynamic Background Emerald Gradients */}
       <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[550px] bg-gradient-to-b opacity-40 blur-[130px] rounded-full pointer-events-none transition-all duration-1000 ${appMode === 'CCTV_SURVEILLANCE' ? 'from-cyan-400/40 via-blue-300/20 to-transparent' :
-          status === 'IDLE' ? 'from-teal-300/40 via-emerald-200/20 to-transparent' :
-            status === 'QR_SCAN' || status === 'QR_SCANNED' ? 'from-emerald-400/40 via-teal-300/20 to-transparent' :
-              status === 'FACE_SCAN' ? 'from-amber-300/40 via-yellow-200/20 to-transparent' :
-                status === 'VERIFYING' ? 'from-teal-400/40 via-emerald-300/20 to-transparent' :
-                  status === 'SUCCESS' ? 'from-emerald-400/50 via-green-300/20 to-transparent' :
-                    'from-rose-400/40 via-red-200/20 to-transparent'
+        status === 'IDLE' ? 'from-teal-300/40 via-emerald-200/20 to-transparent' :
+          status === 'QR_SCAN' || status === 'QR_SCANNED' ? 'from-emerald-400/40 via-teal-300/20 to-transparent' :
+            status === 'FACE_SCAN' ? 'from-amber-300/40 via-yellow-200/20 to-transparent' :
+              status === 'VERIFYING' ? 'from-teal-400/40 via-emerald-300/20 to-transparent' :
+                status === 'SUCCESS' ? 'from-emerald-400/50 via-green-300/20 to-transparent' :
+                  'from-rose-400/40 via-red-200/20 to-transparent'
         }`} />
 
       {/* Header */}
@@ -627,7 +639,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-800 via-emerald-600 to-teal-700 bg-clip-text text-transparent">
-              Titan Auth & CCTV AI
+              FaceQRity
             </h1>
             <p className="text-xs text-emerald-600/80 font-medium">Smart Attendance & AI Surveillance System</p>
           </div>
@@ -638,8 +650,8 @@ export default function App() {
           <button
             onClick={() => setAppMode('ATTENDANCE')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${appMode === 'ATTENDANCE'
-                ? 'bg-white text-emerald-700 shadow-md border border-emerald-100'
-                : 'text-slate-500 hover:text-slate-800'
+              ? 'bg-white text-emerald-700 shadow-md border border-emerald-100'
+              : 'text-slate-500 hover:text-slate-800'
               }`}
           >
             <QrCode size={15} />
@@ -649,8 +661,8 @@ export default function App() {
           <button
             onClick={() => setAppMode('CCTV_SURVEILLANCE')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${appMode === 'CCTV_SURVEILLANCE'
-                ? 'bg-cyan-600 text-white shadow-md border border-cyan-500 animate-pulse'
-                : 'text-slate-500 hover:text-slate-800'
+              ? 'bg-cyan-600 text-white shadow-md border border-cyan-500 animate-pulse'
+              : 'text-slate-500 hover:text-slate-800'
               }`}
           >
             <Video size={15} />
@@ -672,11 +684,11 @@ export default function App() {
           {/* Left: Camera Viewport */}
           <section className="flex-1 flex flex-col">
             <div className={`relative w-full aspect-video md:aspect-[4/3] max-h-[60vh] rounded-3xl overflow-hidden border-2 shadow-xl bg-slate-900 transition-all duration-500 ${status === 'SUCCESS' ? 'border-emerald-500 shadow-emerald-500/20 ring-4 ring-emerald-500/15' :
-                status === 'ERROR' ? 'border-rose-400 shadow-rose-400/20 ring-4 ring-rose-400/15' :
-                  status === 'FACE_SCAN' ? 'border-amber-400 shadow-amber-400/20 scale-[1.01]' :
-                    status === 'QR_SCAN' ? 'border-emerald-400 shadow-emerald-400/20 scale-[1.01]' :
-                      status === 'QR_SCANNED' ? 'border-emerald-400 shadow-emerald-400/15' :
-                        'border-emerald-100 shadow-slate-200'
+              status === 'ERROR' ? 'border-rose-400 shadow-rose-400/20 ring-4 ring-rose-400/15' :
+                status === 'FACE_SCAN' ? 'border-amber-400 shadow-amber-400/20 scale-[1.01]' :
+                  status === 'QR_SCAN' ? 'border-emerald-400 shadow-emerald-400/20 scale-[1.01]' :
+                    status === 'QR_SCANNED' ? 'border-emerald-400 shadow-emerald-400/15' :
+                      'border-emerald-100 shadow-slate-200'
               }`}>
 
               <video
@@ -685,7 +697,7 @@ export default function App() {
                 playsInline
                 muted
                 className={`w-full h-full object-cover transform scale-x-[-1] transition-all duration-700 ${status === 'VERIFYING' ? 'grayscale opacity-60 blur-sm' :
-                    (status === 'SUCCESS' || status === 'ERROR') ? 'brightness-75' : 'brightness-105'
+                  (status === 'SUCCESS' || status === 'ERROR') ? 'brightness-75' : 'brightness-105'
                   }`}
               />
 
@@ -693,8 +705,8 @@ export default function App() {
               {status === 'QR_SCAN' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/15">
                   <div className={`relative w-64 h-64 border-2 rounded-2xl transition-all duration-300 ${scanCooldown
-                      ? 'border-slate-400/60 shadow-[0_0_30px_rgba(148,163,184,0.3)]'
-                      : 'border-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.4)] animate-pulse'
+                    ? 'border-slate-400/60 shadow-[0_0_30px_rgba(148,163,184,0.3)]'
+                    : 'border-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.4)] animate-pulse'
                     }`}>
                     <div className={`absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 rounded-tl-lg transition-colors duration-300 ${scanCooldown ? 'border-slate-400' : 'border-emerald-400'}`}></div>
                     <div className={`absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 rounded-tr-lg transition-colors duration-300 ${scanCooldown ? 'border-slate-400' : 'border-emerald-400'}`}></div>
@@ -747,6 +759,23 @@ export default function App() {
 
             {/* Kiosk Mode Status Indicator */}
             <div className="mt-5 flex flex-col items-center gap-2 text-center">
+              {!enrollmentMode && status === 'QR_SCAN' && (
+                <button
+                  onClick={() => {
+                    clearTimers();
+                    setEnrollmentMode(true);
+                    setScanCooldown(false);
+                    setErrorMessage('');
+                    lastScannedCodeRef.current = { code: '', time: 0 };
+                  }}
+                  className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2 shadow-sm"
+                >
+                  <PlusCircle size={18} /> ลงทะเบียนใบหน้า
+                </button>
+              )}
+              {enrollmentMode && (
+                <p className="text-sm text-emerald-700 font-semibold">สแกน QR ของตนเอง → ถ่ายภาพใบหน้า → บันทึกข้อมูล</p>
+              )}
               <div className="px-5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-bold tracking-wide flex items-center justify-center gap-2.5 shadow-sm">
                 <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full inline-block animate-ping"></span>
                 ระบบเช็คอินอัตโนมัติ (Hands-Free Kiosk)
@@ -754,7 +783,7 @@ export default function App() {
               <p className="text-[11px] text-slate-500 font-medium max-w-sm">
                 หัน QR Code หน้ากล้องเพื่อเริ่มสแกน ระบบจะหน่วงเวลาสแกนหน้าและเช็คอินอัตโนมัติ
               </p>
-              {status !== 'QR_SCAN' && (
+              {(status !== 'QR_SCAN' || enrollmentMode) && status !== 'VERIFYING' && (
                 <button
                   onClick={() => resetToQrScan(0)}
                   className="mt-1 px-3 py-1.5 bg-white hover:bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
@@ -769,9 +798,9 @@ export default function App() {
           <section className="w-full md:w-[400px] flex flex-col gap-6 shrink-0">
             <div className="bg-white/90 backdrop-blur-xl border border-emerald-100 rounded-3xl p-7 flex flex-col items-center justify-center text-center min-h-[280px] relative overflow-hidden shadow-xl shadow-emerald-950/5">
               <div className={`absolute inset-0 opacity-15 blur-2xl transition-all duration-1000 ${status === 'IDLE' ? 'bg-teal-400' :
-                  status === 'FACE_SCAN' ? 'bg-amber-400' :
-                    status === 'VERIFYING' ? 'bg-teal-500' :
-                      status === 'SUCCESS' ? 'bg-emerald-500' : 'bg-rose-500'
+                status === 'FACE_SCAN' ? 'bg-amber-400' :
+                  status === 'VERIFYING' ? 'bg-teal-500' :
+                    status === 'SUCCESS' ? 'bg-emerald-500' : 'bg-rose-500'
                 }`}></div>
 
               <div className="z-10 bg-emerald-50/80 p-5 rounded-3xl border border-emerald-100 shadow-sm mb-5">
@@ -779,12 +808,21 @@ export default function App() {
               </div>
 
               <h2 className={`text-2xl font-bold mb-2 z-10 transition-colors duration-300 ${status === 'SUCCESS' ? 'text-emerald-600' :
-                  status === 'ERROR' ? 'text-rose-600' : 'text-slate-800'
+                status === 'ERROR' ? 'text-rose-600' : 'text-slate-800'
                 }`}>
                 {renderTitle()}
               </h2>
 
               <div className="z-10 w-full flex justify-center">
+                {status === 'ENROLL_READY' && (
+                  <div className="flex flex-col items-center gap-3">
+                    <p className="text-sm text-slate-600">{renderDescription()}</p>
+                    <p className="text-xs text-slate-500">การบันทึกจะอัปเดตใบหน้าของรหัสนี้ และยังไม่บันทึกเวลาเข้าเรียน</p>
+                    <button onClick={enrollFace} className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold flex items-center gap-2">
+                      <Camera size={18} /> ถ่ายภาพและลงทะเบียน
+                    </button>
+                  </div>
+                )}
                 {status === 'ERROR' ? (
                   <div className="bg-rose-50 w-full p-4 rounded-2xl border border-rose-200 mt-2 flex flex-col items-center gap-3 shadow-sm">
                     <p className="text-rose-700 text-xs font-semibold sm:text-sm leading-snug">
@@ -801,11 +839,11 @@ export default function App() {
                         </button>
                       )}
                   </div>
-                ) : (
+                ) : status !== 'ENROLL_READY' ? (
                   <p className="text-slate-500 text-sm max-w-[260px]">
                     {renderDescription()}
                   </p>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -1024,8 +1062,8 @@ export default function App() {
                           <span>{log.name || 'Unknown'}</span>
                         </div>
                         <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${log.gait_status?.includes('Abnormal')
-                            ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                            : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                          ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                          : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                           }`}>
                           {log.gait_status || 'Normal gait'}
                         </span>
@@ -1172,8 +1210,8 @@ export default function App() {
                           </td>
                           <td className="px-4 py-3 text-center whitespace-nowrap">
                             <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${row.status === 'ตรงเวลา' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                                row.status === 'สาย' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                                  'bg-rose-100 text-rose-800 border border-rose-200'
+                              row.status === 'สาย' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                'bg-rose-100 text-rose-800 border border-rose-200'
                               }`}>
                               {row.status}
                             </span>
