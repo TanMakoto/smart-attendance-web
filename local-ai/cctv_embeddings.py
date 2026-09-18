@@ -3,6 +3,7 @@ import json
 import os
 import threading
 import uuid
+import unicodedata
 from pathlib import Path
 import cv2
 import numpy as np
@@ -112,8 +113,8 @@ async def recognize(file: UploadFile = File(...)):
 
 @router.post('/enroll')
 async def enroll(name: str = Form(...), file: UploadFile = File(...)):
-    name = ''.join(c for c in name if c.isalnum() or c in ' _-').strip()
-    if not name or len(name) > 80:
+    name = unicodedata.normalize('NFC', name).strip()
+    if not name or len(name) > 80 or any(unicodedata.category(c).startswith('C') for c in name):
         return JSONResponse(status_code=400, content={'message': 'กรุณาใส่ชื่อที่ถูกต้อง (ไม่เกิน 80 ตัวอักษร)'})
     raw = await file.read()
     frame = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
