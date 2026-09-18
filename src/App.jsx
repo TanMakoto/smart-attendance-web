@@ -446,12 +446,14 @@ export default function App() {
               .then(res => res.ok ? res.json() : null)
               .then(data => {
                 if (data && data.status === 'success' && data.student_id) {
-                  const resolvedId = data.student_id;
-                  const matchedUser = USER_DATABASE.find(u => u.id === resolvedId) || {
+                  const resolvedId = String(data.student_id).trim();
+                  const knownUser = USER_DATABASE.find(u => u.id === resolvedId);
+                  const resolvedName = typeof data.name === 'string' ? data.name.trim() : '';
+                  const matchedUser = {
                     id: resolvedId,
-                    name: `นักศึกษา ${resolvedId}`,
-                    role: 'นักศึกษา',
-                    dept: 'วิศวกรรมคอมพิวเตอร์'
+                    name: resolvedName || knownUser?.name || `นักศึกษา ${resolvedId}`,
+                    role: knownUser?.role || 'ผู้ใช้งาน',
+                    dept: knownUser?.dept || 'ไม่ระบุ'
                   };
                   handleSuccessUser(matchedUser);
                 } else {
