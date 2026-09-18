@@ -452,8 +452,8 @@ export default function App() {
                   const matchedUser = {
                     id: resolvedId,
                     name: resolvedName || knownUser?.name || `นักศึกษา ${resolvedId}`,
-                    role: knownUser?.role || 'ผู้ใช้งาน',
-                    dept: knownUser?.dept || 'ไม่ระบุ'
+                    role: data.role?.trim() || knownUser?.role || 'ผู้ใช้งาน',
+                    dept: data.dept?.trim() || knownUser?.dept || 'ไม่ระบุ'
                   };
                   handleSuccessUser(matchedUser);
                 } else {
@@ -752,7 +752,7 @@ export default function App() {
                     <div className="bg-emerald-50/60 rounded-2xl p-3.5 border border-emerald-100 text-left mb-4 text-xs space-y-1.5">
                       <div className="text-slate-600 font-medium">ชื่อ: <span className="text-slate-900 font-semibold">{currentUser?.name}</span></div>
                       <div className="text-slate-600 font-medium">ตำแหน่ง: <span className="text-slate-900 font-semibold">{currentUser?.role}</span></div>
-                      <div className="text-slate-600 font-medium">สาขา: <span className="text-slate-900 font-semibold">{currentUser?.dept}</span></div>
+                      <div className="text-slate-600 font-medium">สาขา / หน่วยงาน: <span className="text-slate-900 font-semibold">{currentUser?.dept}</span></div>
                     </div>
                     <p className="text-[11px] text-emerald-600 font-medium">กำลังสแกนใบหน้าอัตโนมัติ...</p>
                   </div>
