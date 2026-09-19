@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+known_faces/
+*.csv
+gait_profiles.json
+
